@@ -556,4 +556,32 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
     # 打印通知渠道配置来源
     _print_notification_sources(config)
 
+    # Debug: 打印通知相关的环境变量是否存在（仅指出是否已设置，不输出敏感值）
+    try:
+        notif_env_keys = [
+            "FEISHU_WEBHOOK_URL",
+            "DINGTALK_WEBHOOK_URL",
+            "WEWORK_WEBHOOK_URL",
+            "TELEGRAM_BOT_TOKEN",
+            "TELEGRAM_CHAT_ID",
+            "EMAIL_FROM",
+            "EMAIL_PASSWORD",
+            "EMAIL_TO",
+            "EMAIL_SMTP_SERVER",
+            "EMAIL_SMTP_PORT",
+            "NTFY_SERVER_URL",
+            "NTFY_TOPIC",
+            "BARK_URL",
+            "SLACK_WEBHOOK_URL",
+            "GENERIC_WEBHOOK_URL",
+            "ENABLE_NOTIFICATION",
+        ]
+        print("环境变量可用性:")
+        for key in notif_env_keys:
+            is_set = bool(os.environ.get(key))
+            print(f"  {key}: {'已设置' if is_set else '未设置'}")
+    except Exception:
+        # Debug logging must not break startup
+        pass
+
     return config

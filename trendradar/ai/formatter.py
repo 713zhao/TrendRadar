@@ -313,13 +313,14 @@ def get_ai_analysis_renderer(channel: str):
         "feishu": render_ai_analysis_feishu,
         "dingtalk": render_ai_analysis_dingtalk,
         "wework": render_ai_analysis_markdown,
-        "telegram": render_ai_analysis_markdown,
-        "email": render_ai_analysis_html_rich,  # 邮件使用丰富样式，配合 HTML 报告的 CSS
+        "telegram": render_ai_analysis_plain,
+        "email": render_ai_analysis_plain,  # 改为纯文本，用户要求仅发送 AI 文本
         "ntfy": render_ai_analysis_markdown,
         "bark": render_ai_analysis_plain,
         "slack": render_ai_analysis_markdown,
     }
-    return renderers.get(channel, render_ai_analysis_markdown)
+    # 默认返回纯文本渲染，以确保通知渠道仅包含 AI 文本
+    return renderers.get(channel, render_ai_analysis_plain)
 
 
 def render_ai_analysis_html_rich(result: AIAnalysisResult) -> str:

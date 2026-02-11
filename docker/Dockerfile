@@ -50,8 +50,12 @@ RUN set -ex && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy configuration directory (include timeline.yaml and prompts)
+COPY config/ ./config/
 
 COPY docker/manage.py .
 COPY trendradar/ ./trendradar/

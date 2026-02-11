@@ -888,13 +888,32 @@ class NewsAnalyzer:
             and has_notification
             and has_any_content
         ):
+            # 根据 display 配置决定日志中显示的内容统计（如果只开启了 AI 区域，则只标注 AI 分析）
+            display_cfg = cfg.get("DISPLAY", {}) or {}
+            display_regions = display_cfg.get("REGIONS", {}) if isinstance(display_cfg, dict) else {}
+            only_ai_display = False
+            if display_regions:
+                other_enabled = any(v for k, v in display_regions.items() if k != "ai_analysis" and v)
+                only_ai_display = display_regions.get("ai_analysis", False) and not other_enabled
+                # 如果只显示 AI 区域，清空本地的热榜/新增列表统计（这样日志与通知内容只反映 AI）
+                if only_ai_display:
+                    stats = []
+                    new_titles = []
+                    news_count = 0
+                    rss_count = 0
+
             # 输出推送内容统计
             content_parts = []
-            if news_count > 0:
-                content_parts.append(f"热榜 {news_count} 条")
-            if rss_count > 0:
-                content_parts.append(f"RSS {rss_count} 条")
-            total_count = news_count + rss_count
+            if only_ai_display:
+                content_parts.append("AI 分析")
+                total_count = getattr(ai_result, "analyzed_news", 0) if ai_result else 0
+            else:
+                if news_count > 0:
+                    content_parts.append(f"热榜 {news_count} 条")
+                if rss_count > 0:
+                    content_parts.append(f"RSS {rss_count} 条")
+                total_count = news_count + rss_count
+
             print(f"[推送] 准备发送：{' + '.join(content_parts)}，合计 {total_count} 条")
 
             # 调度系统决策
@@ -922,6 +941,19 @@ class NewsAnalyzer:
 
             # 准备报告数据
             report_data = self.ctx.prepare_report(stats, failed_ids, new_titles, id_to_name, mode)
+
+            # 如果配置只打开了 AI 分析区域（用户只想接收 AI 摘要），清空热榜/RSS 内容，保留 ai_result
+            display_cfg = cfg.get("DISPLAY", {}) or {}
+            display_regions = display_cfg.get("REGIONS", {}) if isinstance(display_cfg, dict) else {}
+            if display_regions:
+                # 判断是否只有 ai_analysis 被开启
+                other_enabled = any(
+                    v for k, v in display_regions.items() if k != "ai_analysis" and v
+                )
+                if (display_regions.get("ai_analysis", False)) and not other_enabled:
+                    report_data["stats"] = []
+                    report_data["new_titles"] = []
+                    report_data["total_new_count"] = 0
 
             # 是否发送版本更新信息
             update_info_to_send = self.update_info if cfg["SHOW_VERSION_UPDATE"] else None

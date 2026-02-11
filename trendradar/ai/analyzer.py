@@ -9,6 +9,7 @@ AI 分析器模块
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
 from trendradar.ai.client import AIClient
@@ -77,6 +78,20 @@ class AIAnalyzer:
         self.include_rank_timeline = analysis_config.get("INCLUDE_RANK_TIMELINE", False)
         self.include_standalone = analysis_config.get("INCLUDE_STANDALONE", False)
         self.language = analysis_config.get("LANGUAGE", "Chinese")
+        # 是否尝试读取文章正文以供 AI 深度研读（使用 Jina Reader）
+        self.read_articles = analysis_config.get("READ_ARTICLES", False)
+        self.max_articles_to_read = analysis_config.get("MAX_ARTICLES_TO_READ", 3)
+        self._article_reader = None
+        if self.read_articles:
+            try:
+                from mcp_server.tools.article_reader import ArticleReaderTools
+
+                # 传入可能的 Jina API Key（从 analysis_config 中读取）
+                jina_key = analysis_config.get("JINA_API_KEY")
+                self._article_reader = ArticleReaderTools(project_root=None, jina_api_key=jina_key)
+            except Exception:
+                # 若无法导入或初始化，不影响主流程，仅记录日志在 debug 模式
+                self._article_reader = None
 
         # 加载提示词模板
         self.system_prompt, self.user_prompt_template = self._load_prompt_template(
@@ -195,6 +210,15 @@ class AIAnalyzer:
         user_prompt = user_prompt.replace("{keywords}", ", ".join(keywords[:20]) if keywords else "无")
         user_prompt = user_prompt.replace("{news_content}", news_content)
         user_prompt = user_prompt.replace("{rss_content}", rss_content)
+        # 如果启用文章读取，将全文文本注入到提示词（变量名：{news_full_text}）
+        news_full_text = ""
+        if self.read_articles and self._article_reader:
+            try:
+                news_full_text = self._read_article_bodies(stats, rss_stats)
+            except Exception:
+                news_full_text = ""
+
+        user_prompt = user_prompt.replace("{news_full_text}", news_full_text)
         user_prompt = user_prompt.replace("{language}", self.language)
 
         # 构建独立展示区内容
@@ -217,6 +241,19 @@ class AIAnalyzer:
         # 调用 AI API（使用 LiteLLM）
         try:
             response = self._call_ai(user_prompt)
+
+            # 在调试模式下将 AI 原始响应保存到 output/ai_raw_responses
+            if self.debug:
+                try:
+                    out_dir = Path.cwd() / "output" / "ai_raw_responses"
+                    out_dir.mkdir(parents=True, exist_ok=True)
+                    ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                    fname = out_dir / f"ai_response_{ts}.txt"
+                    fname.write_text(response or "", encoding="utf-8")
+                    print(f"[AI] 原始响应已保存: {fname}")
+                except Exception:
+                    pass
+
             result = self._parse_response(response)
 
             # 如果配置未启用 RSS 分析，强制清空 AI 返回的 RSS 洞察
@@ -366,6 +403,72 @@ class AIAnalyzer:
         total_count = news_count + rss_count
 
         return news_content, rss_content, hotlist_total, rss_total, total_count
+
+    def _read_article_bodies(self, stats: List[Dict], rss_stats: Optional[List[Dict]] = None) -> str:
+        """
+        使用 ArticleReaderTools 批量读取若干链接的正文并返回合并的 Markdown 文本。
+
+        会优先从热榜中的标题条目收集 URL，再从 RSS 条目补满至上限。
+        返回一个包含每篇文章标题与正文的拼接字符串，按优先级排序。
+        """
+        if not self._article_reader:
+            return ""
+
+        urls = []
+        seen = set()
+
+        def _add_url(u):
+            if not u:
+                return
+            if not isinstance(u, str):
+                return
+            if u in seen:
+                return
+            if not u.startswith(("http://", "https://")):
+                return
+            seen.add(u)
+            urls.append(u)
+
+        # 从热榜条目收集 url
+        if stats:
+            for stat in stats:
+                for t in stat.get("titles", []):
+                    url = t.get("url") or t.get("mobileUrl")
+                    _add_url(url)
+                    if len(urls) >= self.max_articles_to_read:
+                        break
+                if len(urls) >= self.max_articles_to_read:
+                    break
+
+        # 从 RSS 补充
+        if rss_stats and len(urls) < self.max_articles_to_read:
+            for stat in rss_stats:
+                for t in stat.get("titles", []):
+                    url = t.get("url") or t.get("mobileUrl")
+                    _add_url(url)
+                    if len(urls) >= self.max_articles_to_read:
+                        break
+                if len(urls) >= self.max_articles_to_read:
+                    break
+
+        if not urls:
+            return ""
+
+        try:
+            batch = self._article_reader.read_articles_batch(urls)
+            articles = batch.get("articles", []) if isinstance(batch, dict) else []
+            parts = []
+            for a in articles:
+                if not a.get("success"):
+                    continue
+                data = a.get("data") or {}
+                content = data.get("content", "")
+                url = a.get("url", "")
+                header = f"URL: {url}\n"
+                parts.append(header + content)
+            return "\n\n---\n\n".join(parts)
+        except Exception:
+            return ""
 
     def _call_ai(self, user_prompt: str) -> str:
         """调用 AI API（使用 LiteLLM）"""

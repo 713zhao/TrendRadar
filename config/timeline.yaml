@@ -400,20 +400,20 @@ custom:
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   default:
     collect: true                  # 是否采集数据（爬取热榜 + RSS）
-    analyze: false                 # 是否执行 AI 分析
-    ai_mode: "current"            # AI 分析模式:
+    analyze: true                  # 每次运行均执行 AI 分析（用户要求只接收 AI 摘要）
+    ai_mode: "current"            # AI 分析模式: current（按当前榜单分析）
                                    #   follow_report → 跟随 report_mode
                                    #   daily         → 强制全天汇总
                                    #   current       → 强制当前榜单
                                    #   incremental   → 强制增量模式
-    push: false                    # 是否发送推送通知
-    report_mode: "current"         # 报告模式:
+    push: true                     # 每次运行都推送（配合外部调度每 30 分钟触发）
+    report_mode: "current"       # 报告模式: current（仅发送 AI 摘要/当前榜单）
                                    #   daily       → 当日所有新闻的汇总
                                    #   current     → 当前在榜的新闻
                                    #   incremental → 只推送新增内容
     once:
-      analyze: true                # 该时间段内只分析一次（省 API）
-      push: true                   # 该时间段内只推送一次（省打扰）
+      analyze: false               # 在 default 中不限制 analyze 次数（每次运行都会分析）
+      push: false                  # 在 default 中不限制 push 次数（每次运行都会推送）
 
 
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

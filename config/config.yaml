@@ -41,7 +41,7 @@ app:
 # ===============================================================
 schedule:
   enabled: true                         # 是否启用调度系统
-  preset: "morning_evening"             # 预设模板名称（见上方说明）
+  preset: "custom"                    # 使用自定义时间线（将在 timeline.yaml 的 custom 段生效）
 
 
 # ===============================================================
@@ -128,6 +128,27 @@ rss:
       url: "https://finance.yahoo.com/news/rssindex"
       enabled: false                  # 禁用
 
+    # AI / 技术 / 商业 订阅源（新增）
+    - id: "mit-ai"
+      name: "MIT News - Artificial Intelligence"
+      url: "https://news.mit.edu/rss/topic/artificial-intelligence2"
+      enabled: true
+
+    - id: "techcrunch"
+      name: "TechCrunch"
+      url: "https://techcrunch.com/feed/"
+      enabled: true
+
+    - id: "theverge-tech"
+      name: "The Verge - Tech"
+      url: "https://www.theverge.com/rss/index.xml"
+      enabled: true
+
+    - id: "hbr"
+      name: "Harvard Business Review"
+      url: "https://feeds.feedburner.com/HarvardBusinessReview"
+      enabled: true
+
     # 自定义源示例
     # - id: "custom-feed"
     #   name: "自定义源"
@@ -191,25 +212,16 @@ display:
   #   1. 在此列表中
   #   2. 下方 regions 中对应开关为 true
   region_order:
-    - new_items                       # 1️⃣ 新增热点区域
-    - hotlist                         # 2️⃣ 热榜区域（关键词匹配）
-    - rss                             # 3️⃣ RSS 订阅区域
-    - standalone                      # 4️⃣ 独立展示区
-    - ai_analysis                     # 5️⃣ AI 分析区域
+    - ai_analysis                     # 1️⃣ 只显示 AI 分析区域
 
-  # 推送区域开关
+  # 推送区域开关 - 只保留 AI 分析区域以便推送仅含 AI 摘要
   # 控制各区域是否启用（配合 region_order 使用）
   regions:
-    hotlist: true                     # 热榜区域（关键词匹配的热点新闻）
-    new_items: false                   # 新增热点区域（含热榜新增 + RSS 新增）
-                                      # 注：热点词汇统计中的新增标记🆕不受此配置影响
-
-    rss: true                         # RSS 订阅区域
-                                      # 开启后将对 RSS 进行关键词分析并在通知中展示
-                                      # 关闭后跳过分析，但独立展示区不受影响
-
+    hotlist: false                    # 热榜区域（关键词匹配的热点新闻）
+    new_items: false                  # 新增热点区域（含热榜新增 + RSS 新增）
+    rss: false                        # RSS 订阅区域（不在通知中显示，AI 仍可使用 RSS 数据）
     standalone: false                 # 独立展示区（完整热榜/RSS，不受关键词过滤）
-    ai_analysis: true                 # AI 分析区域
+    ai_analysis: true                 # AI 分析区域（仅此一项）
 
   # 📋 独立展示区配置
   # 用途：将指定平台的完整热榜/RSS 数据独立提取，不受关键词过滤影响
@@ -219,7 +231,7 @@ display:
   # 两者共享此处的平台/RSS 配置，但开关互相独立（可只开 AI 分析、不推送展示）
   standalone:
     platforms: ["zhihu", "wallstreetcn-hot"]     # 热榜平台 ID 列表（如 ["zhihu", "weibo"]）
-    rss_feeds: []                     # RSS 源 ID 列表（如 ["hacker-news"]）
+    rss_feeds: ["hacker-news", "ruanyifeng", "mit-ai", "techcrunch", "theverge-tech", "hbr"]
     max_items: 20                     # 每个源最多展示条数（0=不限制）
 
 
@@ -266,9 +278,9 @@ notification:
       chat_id: "${TELEGRAM_CHAT_ID}"             # Telegram Chat ID (from environment variable)
 
     email:
-      from: "${EMAIL_FROM}"                        # 发件人邮箱地址 (use env var EMAIL_FROM)
+      from: "claw.zhao@gmail.com"                        # 发件人邮箱地址
       password: "${EMAIL_PASSWORD}"                    # 发件人邮箱密码或授权码（环境变量）
-      to: "${EMAIL_TO}"                          # 收件人邮箱，多个用逗号分隔 (use env var EMAIL_TO)
+      to: "claw.zhao@gmail.com"                          # 收件人邮箱，多个用逗号分隔
       smtp_server: "smtp.gmail.com"                 # SMTP 服务器（可选，留空自动识别）
       smtp_port: "465"                   # SMTP 端口（可选，留空自动识别）
 
@@ -309,13 +321,13 @@ storage:
   # 本地存储配置
   local:
     data_dir: "output"                # 数据目录
-    retention_days: 0                 # 保留天数（0=永久保留）
+    retention_days: 2                 # 保留天数（0=永久保留）
 
   # 远程存储配置（S3 兼容协议）
   # 支持: Cloudflare R2, 阿里云 OSS, 腾讯云 COS, AWS S3, MinIO 等
   # 建议将敏感信息配置在 GitHub Secrets 或环境变量中
   remote:
-    retention_days: 0                 # 保留天数（0=永久保留）
+    retention_days: 2                 # 保留天数（0=永久保留）
 
     # S3 兼容配置（或使用环境变量 S3_ENDPOINT_URL 等）
     endpoint_url: ""                  # 服务端点
@@ -374,7 +386,7 @@ ai:
   temperature: 1.0                  # 采样温度 (0.0-2.0)
                                     # 注意：部分模型(如 gpt-5)可能要求必须为 1.0，否则会报错
   
-  max_tokens: 5000                  # 最大生成 token 数
+  max_tokens: 8000                  # 最大生成 token 数
                                     # 注意：如果 API 不支持此参数(报 HTTP 400)，请设为 0 以禁用发送
   # 高级选项
   num_retries: 1                    # 失败重试次数
@@ -443,7 +455,7 @@ ai_analysis:
                                       # GitHub Action 部署默认推送约 20 次（每小时推送一次）， 约 0.1 元/天
                                       # Docker 部署默认推送 48 次(每半小时推送一次)， 约 0.2 元/天
 
-  include_rss: false                # 是否包含 RSS 内容进行分析
+  include_rss: true                 # 是否包含 RSS 内容进行分析
   
   include_standalone: true          # 是否将独立展示区数据纳入 AI 分析（只需上方 display 区的 standalone 配置了平台/RSS 即可）
 
@@ -451,6 +463,12 @@ ai_analysis:
                                     # false: 使用简化格式（排名范围+时间范围+出现次数）
                                     # true: 传递完整排名变化轨迹（如 1(09:30)→2(10:00)→0(11:00)）
                                     # 启用后 AI 能更精确分析热度趋势，但会额外增加 token 消耗（0.5 倍到 1 倍）
+
+  # 文章读取（可选）：启用后系统会尝试抓取若干条新闻正文并传入 AI 以便深度研读
+  # 注意：依赖 Jina Reader（r.jina.ai）服务，可能受到速率限制；可在此处配置 JINA_API_KEY
+  read_articles: true
+  max_articles_to_read: 3
+  jina_api_key: ""
 
 
 
@@ -478,7 +496,7 @@ ai_translation:
 # ===============================================================
 advanced:
   # 调试模式
-  debug: false
+  debug: true
 
   # 版本检查
   version_check_url: "https://raw.githubusercontent.com/sansan0/TrendRadar/refs/heads/master/version"

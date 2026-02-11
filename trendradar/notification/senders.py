@@ -688,19 +688,41 @@ def send_to_email(
         msg["Date"] = formatdate(localtime=True)
         msg["Message-ID"] = make_msgid()
 
-        # 添加纯文本部分（作为备选）
-        text_content = f"""
-TrendRadar 热点分析报告
-========================
-报告类型：{report_type}
-生成时间：{now.strftime('%Y-%m-%d %H:%M:%S')}
+        # 尝试从 HTML 报告中提取 AI 分析的纯文本，以便邮件正文仅包含 AI 文本
+        try:
+            import re
 
-请使用支持HTML的邮件客户端查看完整报告内容。
-        """
-        text_part = MIMEText(text_content, "plain", "utf-8")
+            # 去除 HTML 标签得到纯文本
+            plain_all = re.sub(r"<[^>]+>", "", html_content)
+
+            # 尝试定位 AI 分析标题，优先中文标题（AI 热点分析）
+            start_idx = None
+            for marker in ["AI 热点分析", "✨ AI 热点分析", "AI 分析"]:
+                idx = plain_all.find(marker)
+                if idx != -1:
+                    start_idx = idx
+                    break
+
+            if start_idx is not None:
+                # 取从 AI 标题开始的一段较短文本，避免发送整个 HTML 报告
+                ai_text = plain_all[start_idx : start_idx + 2000].strip()
+            else:
+                # 未找到 AI 标题，则回退到默认简短说明
+                ai_text = (
+                    f"TrendRadar 热点分析报告\n报告类型：{report_type}\n生成时间：{now.strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+
+        except Exception:
+            ai_text = (
+                f"TrendRadar 热点分析报告\n报告类型：{report_type}\n生成时间：{now.strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+
+        # 将 AI 文本作为邮件纯文本正文，满足“仅发送 AI 文本”的要求
+        text_part = MIMEText(ai_text, "plain", "utf-8")
         msg.attach(text_part)
 
-        html_part = MIMEText(html_content, "html", "utf-8")
+        # 保留原始 HTML 报告作为附件/备用展示，但不作为正文
+        html_part = MIMEText('<pre style="white-space:pre-wrap;">' + html_content + '</pre>', "html", "utf-8")
         msg.attach(html_part)
 
         print(f"正在发送邮件到 {to_email}...")

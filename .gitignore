@@ -1,0 +1,78 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*,cover
+
+# Virtualenvs
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# pyenv
+.python-version
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+scripts/*.log
+
+# Databases
+*.sqlite3
+*.db
+
+# Output and runtime artifacts
+output/
+output/*
+
+# Local config and secrets
+.env
+.env.*
+config/local_config.yaml
+
+# Caches
+.pytest_cache/
+.mypy_cache/
+
+# Misc
+*.bak
+*.swp
+
+# Optional: ignore compiled wheel files
+*.whl
